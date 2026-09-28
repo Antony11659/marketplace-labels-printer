@@ -1,35 +1,308 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
+
 <head>
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1"
   >
 
-  <title>Marketplace Labels Printer</title>
+  <title>La De Parfum — Рабочее место</title>
 
-  <link
-    rel="stylesheet"
-    href="/style.css"
-  >
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+      background: #f4f4f4;
+      color: #111;
+    }
+
+    .app {
+      min-height: 100vh;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      padding: 30px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 650px;
+
+      background: white;
+
+      border-radius: 28px;
+
+      padding: 50px;
+
+      text-align: center;
+
+      box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.08);
+    }
+
+    .logo {
+      font-size: 16px;
+      font-weight: bold;
+
+      letter-spacing: 2px;
+
+      color: #777;
+
+      margin-bottom: 35px;
+    }
+
+    h1 {
+      margin: 0;
+
+      font-size: 36px;
+    }
+
+    .description {
+      margin-top: 12px;
+
+      font-size: 18px;
+
+      color: #777;
+    }
+
+    .printer-icon {
+      font-size: 70px;
+
+      margin-top: 40px;
+      margin-bottom: 25px;
+    }
+
+    #status {
+      min-height: 30px;
+
+      margin-bottom: 30px;
+
+      font-size: 20px;
+
+      color: #666;
+    }
+
+    button {
+      width: 100%;
+
+      border: none;
+      border-radius: 18px;
+
+      padding: 22px;
+
+      font-size: 22px;
+      font-weight: bold;
+
+      cursor: pointer;
+
+      transition:
+        transform 0.1s,
+        opacity 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    #printButton {
+      background: #111;
+      color: white;
+    }
+
+    #startStickingButton {
+      margin-top: 15px;
+
+      background: #111;
+      color: white;
+    }
+
+    #startStickingButton[hidden] {
+      display: none;
+    }
+
+    .success {
+      color: #16823b !important;
+      font-weight: bold;
+    }
+
+    .error {
+      color: #c62828 !important;
+      font-weight: bold;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 35px 25px;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+
+      .printer-icon {
+        font-size: 60px;
+      }
+    }
+  </style>
 </head>
+
 
 <body>
 
   <main class="app">
-    <h1>Marketplace Labels</h1>
 
-    <p id="status">
-      Ready to print
-    </p>
+    <section class="card">
 
-    <button id="printButton">
-      PRINT LABELS
-    </button>
+      <div class="logo">
+        LA DE PARFUM
+      </div>
+
+
+      <h1>
+        Этикетки заказов
+      </h1>
+
+
+      <p class="description">
+        Распечатайте этикетки перед началом поклейки
+      </p>
+
+
+      <div class="printer-icon">
+        🖨️
+      </div>
+
+
+      <div id="status">
+        Готово к печати
+      </div>
+
+
+      <button id="printButton">
+        РАСПЕЧАТАТЬ ЭТИКЕТКИ
+      </button>
+
+
+      <button
+        id="startStickingButton"
+        hidden
+      >
+        НАЧАТЬ ПОКЛЕЙКУ →
+      </button>
+
+    </section>
+
   </main>
 
-  <script src="/app.js"></script>
+
+  <script>
+    const printButton =
+      document.querySelector("#printButton");
+
+    const startStickingButton =
+      document.querySelector("#startStickingButton");
+
+    const status =
+      document.querySelector("#status");
+
+
+    printButton.addEventListener("click", async () => {
+
+      // Prevent accidental double printing
+      printButton.disabled = true;
+
+      status.className = "";
+
+      status.textContent =
+        "🖨️ Печать этикеток...";
+
+
+      try {
+
+        const response = await fetch(
+          "/api/print",
+          {
+            method: "POST"
+          }
+        );
+
+
+        const data = await response.json();
+
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.error || "Ошибка печати"
+          );
+        }
+
+
+        // PRINT SUCCESS
+
+        status.textContent =
+          "✓ Этикетки отправлены на печать";
+
+        status.className = "success";
+
+
+        // We don't need the print button anymore.
+        printButton.hidden = true;
+
+
+        // Employee decides when they are
+        // physically ready to continue.
+        startStickingButton.hidden = false;
+
+
+      } catch (error) {
+
+        console.error(error);
+
+
+        status.textContent =
+          "Ошибка печати. Попробуйте ещё раз.";
+
+        status.className = "error";
+
+
+        // Allow another attempt
+        printButton.disabled = false;
+      }
+
+    });
+
+
+    startStickingButton.addEventListener(
+      "click",
+      () => {
+
+        window.location.href =
+          "/sticking.html";
+
+      }
+    );
+  </script>
 
 </body>
+
 </html>

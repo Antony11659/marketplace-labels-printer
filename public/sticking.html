@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Подготовка флаконов</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #111;
+    }
+
+    .app {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 50px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    #progress {
+      color: #777;
+      font-size: 18px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    #perfumeName {
+      font-size: 42px;
+      margin: 0;
+    }
+
+    #total {
+      margin-top: 10px;
+      color: #777;
+      font-size: 20px;
+    }
+
+    #bottles {
+      margin: 40px 0;
+    }
+
+    .bottle {
+      display: flex;
+      justify-content: space-between;
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      font-size: 26px;
+    }
+
+    .quantity {
+      font-weight: bold;
+    }
+
+    /* Navigation */
+
+    .navigation {
+      display: flex;
+      gap: 12px;
+    }
+
+    #backButton,
+    #nextButton {
+      border: 0;
+      border-radius: 16px;
+      padding: 20px;
+      font-size: 22px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #backButton {
+      width: 30%;
+      background: #e8e8e8;
+      color: #111;
+    }
+
+    #nextButton {
+      width: 70%;
+      background: #111;
+      color: white;
+    }
+
+    #backButton:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    #nextButton:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .error {
+      color: #c62828;
+    }
+  </style>
+</head>
+
+
+<body>
+
+  <main class="app">
+
+    <div class="header">
+
+      <h1>
+        Подготовка флаконов
+      </h1>
+
+      <div id="progress"></div>
+
+    </div>
+
+
+    <div class="card">
+
+      <h2 id="perfumeName">
+        Загрузка...
+      </h2>
+
+      <div id="total"></div>
+
+      <div id="bottles"></div>
+
+
+      <!-- NAVIGATION -->
+
+      <div class="navigation">
+
+        <button
+          id="backButton"
+          disabled
+        >
+          ← НАЗАД
+        </button>
+
+        <button
+          id="nextButton"
+          disabled
+        >
+          ✓ ГОТОВО — ДАЛЕЕ
+        </button>
+
+      </div>
+
+    </div>
+
+  </main>
+
+
+  <script>
+
+    // =====================================================
+    // PACKAGING FRONTEND
+    // =====================================================
+
+    const PACKAGING_URL =
+      "PUT_PACKAGING_FRONTEND_URL_HERE";
+
+
+    let plan;
+
+    let currentRegularIndex = 0;
+    let currentUniqueIndex = 0;
+
+    let stage = "loading";
+
+    let uniqueGroups = [];
+
+
+    const perfumeName =
+      document.querySelector("#perfumeName");
+
+    const total =
+      document.querySelector("#total");
+
+    const bottles =
+      document.querySelector("#bottles");
+
+    const progress =
+      document.querySelector("#progress");
+
+    const backButton =
+      document.querySelector("#backButton");
+
+    const nextButton =
+      document.querySelector("#nextButton");
+
+
+    // =====================================================
+    // TOTAL NUMBER OF STEPS
+    // =====================================================
+
+    function getTotalSteps() {
+
+      return (
+        plan.regular.length +
+        uniqueGroups.length
+      );
+    }
+
+
+    // =====================================================
+    // LOAD PLAN
+    //
+    // IMPORTANT:
+    // This reads the EXISTING Ozon session.
+    // It does NOT create a new session.
+    // =====================================================
+
+    async function loadPlan() {
+
+      try {
+
+        const response =
+          await fetch("/api/sticking");
+
+
+        const data =
+          await response.json();
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.error ||
+            "Не удалось загрузить план"
+          );
+        }
+
+
+        plan = data;
+
+
+        console.log(
+          "Sticking plan:",
+          plan
+        );
+
+
+        // IMPORTANT:
+        //
+        // DO NOT SORT HERE.
+        //
+        // Backend already gives us
+        // exactly the same order
+        // that was used for printing.
+
+
+        // Convert:
+        //
+        // {
+        //   "3": ["Marfa", "Kirke"],
+        //   "5": ["Ani"]
+        // }
+        //
+        // into:
+        //
+        // [
+        //   {
+        //     volume: "3",
+        //     names: ["Marfa", "Kirke"]
+        //   }
+        // ]
+
+        uniqueGroups =
+          Object.entries(
+            plan.unique
+          ).map(
+            ([volume, names]) => ({
+              volume,
+              names
+            })
+          );
+
+
+        // -------------------------
+        // START REGULAR PERFUMES
+        // -------------------------
+
+        if (
+          plan.regular.length > 0
+        ) {
+
+          stage = "regular";
+
+          currentRegularIndex = 0;
+
+          showCurrentRegular();
+
+          return;
+        }
+
+
+        // -------------------------
+        // NO REGULAR:
+        // START UNIQUE
+        // -------------------------
+
+        if (
+          uniqueGroups.length > 0
+        ) {
+
+          stage = "unique";
+
+          currentUniqueIndex = 0;
+
+          showCurrentUnique();
+
+          return;
+        }
+
+
+        // Nothing to prepare.
+
+        showFinished();
+
+
+      } catch (error) {
+
+        console.error(
+          "LOAD STICKING ERROR:",
+          error
+        );
+
+
+        stage = "error";
+
+
+        perfumeName.textContent =
+          "Ошибка загрузки";
+
+
+        perfumeName.className =
+          "error";
+
+
+        total.textContent =
+          "Не удалось загрузить текущую сессию";
+
+
+        bottles.innerHTML = "";
+
+        progress.textContent = "";
+
+
+        backButton.disabled = true;
+
+        nextButton.disabled = true;
+      }
+    }
+
+
+    // =====================================================
+    // SHOW REGULAR PERFUME
+    // =====================================================
+
+    function showCurrentRegular() {
+
+      const order =
+        plan.regular[
+          currentRegularIndex
+        ];
+
+
+      perfumeName.className = "";
+
+
+      perfumeName.textContent =
+        order.name;
+
+
+      total.textContent =
+        `${order.total} флаконов`;
+
+
+      progress.textContent =
+        `${currentRegularIndex + 1} / ${getTotalSteps()}`;
+
+
+      bottles.innerHTML = "";
+
+
+      // Bottles are already ordered:
+      //
+      // 0.5ml
+      // 1ml
+      // 3ml
+      // 5ml
+      // 10ml
+      // 20ml
+      // 30ml
+      // 50ml
+
+      for (
+        const bottle
+        of order.bottles
+      ) {
+
+        const row =
+          document.createElement("div");
+
+
+        row.className =
+          "bottle";
+
+
+        row.innerHTML = `
+          <span>
+            ${bottle.volume} мл
+          </span>
+
+          <span class="quantity">
+            ${bottle.quantity} шт.
+          </span>
+        `;
+
+
+        bottles.appendChild(
+          row
+        );
+      }
+
+
+      // Back disabled only on
+      // first perfume.
+
+      backButton.disabled =
+        currentRegularIndex === 0;
+
+
+      nextButton.disabled =
+        false;
+
+
+      nextButton.textContent =
+        "✓ ГОТОВО — ДАЛЕЕ";
+    }
+
+
+    // =====================================================
+    // SHOW UNIQUE GROUP
+    // =====================================================
+
+    function showCurrentUnique() {
+
+      const group =
+        uniqueGroups[
+          currentUniqueIndex
+        ];
+
+
+      perfumeName.className = "";
+
+
+      perfumeName.textContent =
+        `ОДИНОЧНЫЕ — ${group.volume} МЛ`;
+
+
+      total.textContent =
+        `${group.names.length} флаконов`;
+
+
+      // Continue progress from regular perfumes.
+
+      const currentStep =
+        plan.regular.length +
+        currentUniqueIndex +
+        1;
+
+
+      progress.textContent =
+        `${currentStep} / ${getTotalSteps()}`;
+
+
+      bottles.innerHTML = "";
+
+
+      for (
+        const name
+        of group.names
+      ) {
+
+        const row =
+          document.createElement("div");
+
+
+        row.className =
+          "bottle";
+
+
+        row.innerHTML = `
+          <span>
+            ${name}
+          </span>
+
+          <span class="quantity">
+            ×1
+          </span>
+        `;
+
+
+        bottles.appendChild(
+          row
+        );
+      }
+
+
+      backButton.disabled =
+        false;
+
+
+      nextButton.disabled =
+        false;
+
+
+      nextButton.textContent =
+        "✓ ГОТОВО — ДАЛЕЕ";
+    }
+
+
+    // =====================================================
+    // FINISHED
+    // =====================================================
+
+    function showFinished() {
+
+      stage = "finished";
+
+
+      perfumeName.className = "";
+
+
+      perfumeName.textContent =
+        "Поклейка завершена ✓";
+
+
+      total.textContent =
+        "Все флаконы подготовлены. Переходите к упаковке заказов.";
+
+
+      bottles.innerHTML = "";
+
+
+      progress.textContent = "";
+
+
+      // Worker can still go back
+      // if something needs checking.
+
+      backButton.disabled =
+        false;
+
+
+      // Main button now opens
+      // packaging frontend.
+
+      nextButton.disabled =
+        false;
+
+
+      nextButton.textContent =
+        "ПЕРЕЙТИ К УПАКОВКЕ →";
+    }
+
+
+    // =====================================================
+    // BACK BUTTON
+    // =====================================================
+
+    backButton.addEventListener(
+      "click",
+      () => {
+
+
+        // ---------------------------------
+        // FROM FINISHED SCREEN
+        // ---------------------------------
+
+        if (
+          stage === "finished"
+        ) {
+
+
+          // Return to last unique group.
+
+          if (
+            uniqueGroups.length > 0
+          ) {
+
+            stage = "unique";
+
+
+            currentUniqueIndex =
+              uniqueGroups.length - 1;
+
+
+            showCurrentUnique();
+
+
+            return;
+          }
+
+
+          // No unique perfumes:
+          // return to last regular perfume.
+
+          if (
+            plan.regular.length > 0
+          ) {
+
+            stage = "regular";
+
+
+            currentRegularIndex =
+              plan.regular.length - 1;
+
+
+            showCurrentRegular();
+          }
+
+
+          return;
+        }
+
+
+        // ---------------------------------
+        // UNIQUE PERFUMES
+        // ---------------------------------
+
+        if (
+          stage === "unique"
+        ) {
+
+
+          // Previous unique volume group.
+
+          if (
+            currentUniqueIndex > 0
+          ) {
+
+            currentUniqueIndex--;
+
+
+            showCurrentUnique();
+
+
+            return;
+          }
+
+
+          // First unique group:
+          // go back to last regular perfume.
+
+          if (
+            plan.regular.length > 0
+          ) {
+
+            stage = "regular";
+
+
+            currentRegularIndex =
+              plan.regular.length - 1;
+
+
+            showCurrentRegular();
+          }
+
+
+          return;
+        }
+
+
+        // ---------------------------------
+        // REGULAR PERFUMES
+        // ---------------------------------
+
+        if (
+          stage === "regular" &&
+          currentRegularIndex > 0
+        ) {
+
+          currentRegularIndex--;
+
+
+          showCurrentRegular();
+        }
+
+      }
+    );
+
+
+    // =====================================================
+    // NEXT BUTTON
+    // =====================================================
+
+    nextButton.addEventListener(
+      "click",
+      () => {
+
+
+        // ---------------------------------
+        // FINISHED
+        // OPEN PACKAGING APP
+        // ---------------------------------
+
+        if (
+          stage === "finished"
+        ) {
+
+          window.location.href =
+            PACKAGING_URL;
+
+
+          return;
+        }
+
+
+        // ---------------------------------
+        // REGULAR PERFUMES
+        // ---------------------------------
+
+        if (
+          stage === "regular"
+        ) {
+
+          currentRegularIndex++;
+
+
+          // Next regular perfume.
+
+          if (
+            currentRegularIndex <
+            plan.regular.length
+          ) {
+
+            showCurrentRegular();
+
+
+            return;
+          }
+
+
+          // Regular perfumes finished.
+          // Start unique perfumes.
+
+          if (
+            uniqueGroups.length > 0
+          ) {
+
+            stage = "unique";
+
+
+            currentUniqueIndex = 0;
+
+
+            showCurrentUnique();
+
+          } else {
+
+            showFinished();
+
+          }
+
+
+          return;
+        }
+
+
+        // ---------------------------------
+        // UNIQUE PERFUMES
+        // ---------------------------------
+
+        if (
+          stage === "unique"
+        ) {
+
+          currentUniqueIndex++;
+
+
+          // Next unique volume.
+
+          if (
+            currentUniqueIndex <
+            uniqueGroups.length
+          ) {
+
+            showCurrentUnique();
+
+
+            return;
+          }
+
+
+          // Everything finished.
+
+          showFinished();
+        }
+
+      }
+    );
+
+
+    // =====================================================
+    // START
+    // =====================================================
+
+    loadPlan();
+
+  </script>
+
+</body>
+
+</html>
